@@ -4,8 +4,7 @@ import re
 from typing import Any
 
 import streamlit as st
-from google import genai
-from google.genai import Clients , types
+import requests
 from pypdf import PdfReader
 
 
@@ -58,117 +57,66 @@ def clean_json_text(text: str) -> str:
     return cleaned.strip()
 
 
-def analyze_resume(resume_text: str, api_key: str) -> dict[str, Any]:
-    """Ask Gemini to evaluate the resume and return structured JSON."""
-    client = Client(api_key=api_key)
-
-    schema = {
-        "type": "OBJECT",
-        "properties": {
-            "ats_score": {
-                "type": "INTEGER",
-                "description": "Overall ATS-readiness score from 0 to 100.",
-            },
-            "summary": {
-                "type": "STRING",
-                "description": "Short explanation of the score.",
-            },
-            "category_scores": {
-                "type": "OBJECT",
-                "properties": {
-                    "format": {"type": "INTEGER"},
-                    "keywords": {"type": "INTEGER"},
-                    "experience": {"type": "INTEGER"},
-                    "skills": {"type": "INTEGER"},
-                    "clarity": {"type": "INTEGER"},
-                },
-                "required": [
-                    "format",
-                    "keywords",
-                    "experience",
-                    "skills",
-                    "clarity",
-                ],
-            },
-            "strengths": {
-                "type": "ARRAY",
-                "items": {"type": "STRING"},
-            },
-            "improvements": {
-                "type": "ARRAY",
-                "items": {"type": "STRING"},
-            },
-            "ats_warnings": {
-                "type": "ARRAY",
-                "items": {"type": "STRING"},
-            },
-            "missing_keywords": {
-                "type": "ARRAY",
-                "items": {"type": "STRING"},
-            },
-        },
-        "required": [
-            "ats_score",
-            "summary",
-            "category_scores",
-            "strengths",
-            "improvements",
-            "ats_warnings",
-            "missing_keywords",
-        ],
-    }
-
-    prompt = f"""
-You are an expert ATS resume evaluator and career coach.
-
-Analyze the resume text below for general ATS compatibility and recruiter
-readability. Do NOT claim that your score is an official score from a
-particular ATS vendor. It is an estimated ATS-readiness score.
-
-Score the resume from 0 to 100 using these dimensions:
-- format: simple, parseable structure; standard headings; no obvious parsing risks
-- keywords: relevant job-related terminology and measurable keywords
-- experience: clear responsibilities, achievements, impact, and metrics
-- skills: relevant technical/professional skills stated clearly
-- clarity: concise language, consistency, grammar, and easy scanning
-
-Important:
-1. Do not invent information that is not in the resume.
-2. Do not penalize a resume merely because it has no photo.
-3. Prefer standard section names such as Summary, Experience, Education, Skills,
-   Projects, Certifications.
-4. Flag possible ATS risks such as tables, columns, graphics, unusual symbols,
-   headers/footers, or contact information that may be difficult to parse.
-   Only flag them when the extracted text provides evidence or when the issue
-   is reasonably inferable.
-5. Give practical, specific improvements.
-6. Missing keywords should be based only on skills/terms that would reasonably
-   strengthen the resume for the roles suggested by the resume itself.
-7. Keep the output concise and useful.
-
-Resume:
----BEGIN RESUME---
-{resume_text}
----END RESUME---
-"""
-
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.2,
-            max_output_tokens=2500,
-            response_mime_type="application/json",
-            response_schema=schema,
-        ),
+def analyze_resume(resume_text: str, api_key: str) -> dict:
+    url = (
+        "https://generativelanguage.googleapis.com/"
+        "v1beta/models/gemini-2.5-flash:generateContent"
     )
 
-    raw = response.text
-    if not raw:
-        raise ValueError("Gemini returned an empty response.")
+    prompt = f"""
+You are an expert ATS resume evaluator.
 
-    result = json.loads(clean_json_text(raw))
+Analyze this resume and return ONLY valid JSON.
 
+Give an estimated ATS score from 0 to 100.
+
+Return exactly this structure:
+
+{{
+  "ats_score": 0,
+  "summary": "short explanation",
+  "strengths": ["strength 1", "strength 2"],
+  "improvements": ["improvement 1", "improvement 2"],
+  "ats_warnings": ["warning 1"],
+  "missing_keywords": ["keyword 1", "keyword 2"]
+}}
+
+Do not invent information.
+
+Resume:
+{resume_text}
+"""
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": prompt
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.2,
+            "responseMimeType": "application/json"
+        }
+    }
+
+    response = requests.post(
+        url,
+        params={"key": api_key},
+        json=payload,
+        timeout=90
+    )
+
+    response.raise_for_status()
+
+    data = response.json()
+
+    text = data["candidates"][0]["content"]["parts"][0]["text"]
+
+    return json.loads(text)
     # Defensive validation/clamping so bad model values do not break the UI.
     result["ats_score"] = max(0, min(100, int(result["ats_score"])))
 
