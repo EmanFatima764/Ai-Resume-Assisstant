@@ -12,7 +12,7 @@ from pypdf import PdfReader
 # -----------------------------
 # App configuration
 # -----------------------------
-MODEL_NAME = "gemini-3.7-flash"
+MODEL_NAME = "gemini-3.6-flash"
 MAX_RESUME_CHARS = 50000
 
 st.set_page_config(
