@@ -1,5 +1,5 @@
 streamlit==1.63.0
-google-genai==2.21.0
+google-genai
 pypdf==6.16.2
 
 
