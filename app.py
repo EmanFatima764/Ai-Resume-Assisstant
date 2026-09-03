@@ -5,7 +5,7 @@ from typing import Any
 
 import streamlit as st
 from google import genai
-from google.genai import types
+from google.genai import Clients , types
 from pypdf import PdfReader
 
 
@@ -60,7 +60,7 @@ def clean_json_text(text: str) -> str:
 
 def analyze_resume(resume_text: str, api_key: str) -> dict[str, Any]:
     """Ask Gemini to evaluate the resume and return structured JSON."""
-    client = genai.Client(api_key=api_key)
+    client = Client(api_key=api_key)
 
     schema = {
         "type": "OBJECT",
