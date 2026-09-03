@@ -4,15 +4,15 @@ import re
 from typing import Any
 
 import streamlit as st
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from pypdf import PdfReader
 
 
 # -----------------------------
 # App configuration
 # -----------------------------
-genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-model = genai.GenerativeModel("gemini-1.5-flash")
+MODEL_NAME = "gemini-3.6-flash"
 MAX_RESUME_CHARS = 50000
 
 st.set_page_config(
