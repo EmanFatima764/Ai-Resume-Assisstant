@@ -1,4 +1,6 @@
-streamlit
-google-generativeai
-pypdf
+streamlit==1.63.0
+google-genai==2.21.0
+pypdf==6.16.2
+
+
 # force rebuild
